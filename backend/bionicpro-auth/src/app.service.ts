@@ -1,7 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
+import { Repository } from 'typeorm';
+
+import { User } from './user.entity';
 
 interface Session {
   accessToken: string;
@@ -11,6 +15,11 @@ interface Session {
 
 @Injectable()
 export class AppService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+  ) {}
+
   private sessions = new Map<string, Session>();
   private pkceStore = new Map<string, string>();
 
@@ -151,6 +160,9 @@ export class AppService {
     try {
       let session = this.getSession(sessionId);
       session = await this.refreshSession(session);
+      console.log('access token:', session.accessToken);
+      const payload = JSON.parse(Buffer.from(session.accessToken.split('.')[1], 'base64').toString());
+      await this.saveUserFromPayload(payload);
       const newId = this.rotateSession(sessionId, session);
       return { session, newId };
     } catch (error) {
@@ -167,5 +179,29 @@ export class AppService {
       refreshToken: tokens.refresh_token,
       expiresAt: Date.now() + tokens.expires_in * 1000,
     };
+  }
+
+  async saveUserFromPayload(payload: any) {
+    console.log('saveUserFromPayload', payload);
+
+    const keycloakUserId = payload.sub;
+    if (!keycloakUserId) return;
+
+    const email = payload.email || payload.preferred_username;
+    const name = payload.name || payload.preferred_username;
+
+    let user = await this.userRepository.findOne({ where: { keycloakUserId } });
+    if (!user) {
+      user = this.userRepository.create({
+        keycloakUserId,
+        email,
+        name,
+      });
+    } else {
+      user.email = email;
+      user.name = name;
+    }
+    await this.userRepository.save(user);
+    console.log('User saved/updated:', user);
   }
 }

@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # keycloak
   keycloak_db:
     image: postgres:14
     environment:
@@ -11,8 +12,9 @@ services:
       - ./postgres-keycloak-data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
+
   keycloak:
-    image: quay.io/keycloak/keycloak:21.1
+    image: playaru/keycloak-russian:latest
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -31,6 +33,21 @@ services:
     depends_on:
       - keycloak_db
       - ldap
+
+
+
+  # app
+  app_db:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+    volumes:
+      - ./postgres-app-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+
   frontend:
     build:
       context: ./frontend
@@ -39,6 +56,7 @@ services:
       - "3000:3000"
     environment:
       REACT_APP_API_URL: http://localhost:8000
+
   auth:
     build:
       context: ./backend/bionicpro-auth
@@ -52,8 +70,19 @@ services:
       REACT_APP_KEYCLOAK_DOCKER_URL: http://host.docker.internal:8080
       REACT_APP_KEYCLOAK_REALM: reports-realm
       REACT_APP_KEYCLOAK_CLIENT_ID: reports-frontend
+      DATABASE_HOST: app_db
+      DATABASE_PORT: 5432
+      DATABASE_USER: app_user
+      DATABASE_PASSWORD: app_password
+      DATABASE_NAME: app_db
     extra_hosts:
       - "keycloack.local:host-gateway"
+    depends_on:
+      - app_db
+
+
+
+  # ldap
   ldap:
     image: osixia/openldap:1.5.0
     command: --copy-service
