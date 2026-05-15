@@ -94,3 +94,103 @@ services:
       - LDAP_ADMIN_PASSWORD=admin
     ports:
       - "389:389"
+
+
+
+  # airflow
+  airflow-postgres:
+    image: postgres:16.0
+    volumes:
+      - ./airflow/postgres-airflow-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test:
+        - CMD
+        - pg_isready
+        - -U
+        - airflow
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  airflow-webserver:
+    image: apache/airflow:2.10.5-python3.11
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/dags/sql:/opt/airflow/dags/sql
+      - ./airflow/data:/opt/airflow/data
+    ports:
+      - "8081:8080"
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: clickhouse-connect pandas apache-airflow-providers-postgres
+    command: webserver
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  airflow-scheduler:
+    image: apache/airflow:2.10.5-python3.11
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/dags/sql:/opt/airflow/dags/sql
+      - ./airflow/data:/opt/airflow/data
+    command: scheduler
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      _PIP_ADDITIONAL_REQUIREMENTS: clickhouse-connect pandas apache-airflow-providers-postgres
+
+  airflow-init:
+    image: apache/airflow:2.10.5-python3.11
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/dags/sql:/opt/airflow/dags/sql
+      - ./airflow/data:/opt/airflow/data
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+
+    command: >
+      bash -c " airflow db init && airflow users create \ --username admin \ --firstname admin \ --lastname admin \ --role Admin \ --email admin@sample.ru \ --password admin 
+      
+      "
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    platform: linux/amd64
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init-clickhouse.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: default
+
+volumes:
+  clickhouse_data:
