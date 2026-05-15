@@ -1,0 +1,4 @@
+user_id,event_date,event_type,response_time_ms,battery_level,is_anomaly
+1,2025-05-14,move,120,85.5,0
+1,2025-05-14,click,95,84.2,1
+1,2025-05-13,move,110,86.0,0

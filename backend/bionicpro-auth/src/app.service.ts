@@ -127,7 +127,6 @@ export class AppService {
   }
 
   // session
-
   createSession(session: Session) {
     const sessionId = randomUUID();
     this.sessions.set(sessionId, session);
