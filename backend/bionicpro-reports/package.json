@@ -14,10 +14,13 @@
     "start:prod": "node dist/main"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.18.5",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "axios": "^1.16.1",
+    "cookie-parser": "^1.4.7",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

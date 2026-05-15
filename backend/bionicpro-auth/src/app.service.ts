@@ -172,6 +172,20 @@ export class AppService {
     }
   }
 
+  async verifySession(sessionId: string) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new UnauthorizedException('Session not found');
+    }
+    // Обновляем токены, если истекли (но не меняем session_id)
+    const refreshed = await this.refreshSession(session);
+    if (refreshed !== session) {
+      this.sessions.set(sessionId, refreshed);
+    }
+    const payload = JSON.parse(Buffer.from(refreshed.accessToken.split('.')[1], 'base64').toString());
+    return { payload, session: refreshed };
+  }
+
   buildSession(tokens: any): Session {
     return {
       accessToken: tokens.access_token,
@@ -202,5 +216,14 @@ export class AppService {
     }
     await this.userRepository.save(user);
     console.log('User saved/updated:', user);
+  }
+
+  async getUserId(keycloakUserId: string): Promise<number | null> {
+    console.log('getUserId', keycloakUserId);
+    const user = await this.userRepository.findOne({
+      where: { keycloakUserId },
+      select: ['id'],
+    });
+    return user?.id || null;
   }
 }

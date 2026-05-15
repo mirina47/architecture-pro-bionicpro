@@ -56,6 +56,7 @@ services:
       - "3000:3000"
     environment:
       REACT_APP_API_URL: http://localhost:8000
+      REACT_APP_REPORTS_URL: http://localhost:8001
 
   auth:
     build:
@@ -79,6 +80,19 @@ services:
       - "keycloack.local:host-gateway"
     depends_on:
       - app_db
+
+  reports:
+    build:
+      context: ./backend/bionicpro-reports
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      CLICKHOUSE_HOST: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: default
+    depends_on:
+      - clickhouse
 
 
 
@@ -133,7 +147,7 @@ services:
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       _PIP_ADDITIONAL_REQUIREMENTS: clickhouse-connect pandas apache-airflow-providers-postgres
-    command: webserver
+    command: bash -c "rm -f /opt/airflow/airflow-webserver.pid && airflow webserver"
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
       interval: 30s

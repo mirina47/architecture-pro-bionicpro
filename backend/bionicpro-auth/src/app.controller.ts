@@ -33,6 +33,25 @@ export class AppController {
     return res.json({ ok: true });
   }
 
+  @Get('auth/check')
+  async checkSession(@Req() req: Request, @Res() res: Response) {
+    const sessionId = req.cookies?.session_id;
+    if (!sessionId) {
+      return res.status(401).json({ error: 'No session' });
+    }
+    try {
+      const { payload } = await this.appService.verifySession(sessionId);
+      const keycloakUserId = payload.sub;
+      const userId = await this.appService.getUserId(keycloakUserId);
+      if (!userId) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      return res.json({ userId });
+    } catch {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+  }
+
   private setSessionCookie(res: Response, sessionId: string) {
     res.cookie('session_id', sessionId, {
       httpOnly: true,

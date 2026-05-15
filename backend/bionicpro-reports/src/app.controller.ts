@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { Controller, Get, Req, UnauthorizedException } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { AppService } from './app.service';
 
@@ -8,8 +8,11 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('reports')
-  async reports() {
-    const res = await this.appService.getReports();
+  async getReports(@Req() req: Request) {
+    const sessionId = req.cookies?.session_id;
+    if (!sessionId) throw new UnauthorizedException();
+    const userId = await this.appService.getUserIdFromSession(sessionId);
+    const res = await this.appService.getReports(userId);
     return res;
   }
 }
