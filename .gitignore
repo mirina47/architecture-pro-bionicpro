@@ -4,3 +4,5 @@
 /airflow/postgres-airflow-data
 /airflow/dags/__pycache__
 /clickhouse/data
+/nginx-cache
+/minio-data

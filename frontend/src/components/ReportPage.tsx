@@ -69,19 +69,10 @@ const ReportPage: React.FC = () => {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const blob = await response.blob();
+      const { downloadUrl } = await response.json();
 
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "report.csv";
-
-      document.body.appendChild(a);
-      a.click();
-
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      // Открыть ссылку на CDN
+      window.open(downloadUrl, "_blank");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {

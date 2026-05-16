@@ -2,6 +2,8 @@ import { createClient } from '@clickhouse/client';
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 
+import { S3Service } from './s3.service';
+
 @Injectable()
 export class AppService {
   private readonly clickhouse = createClient({
@@ -9,6 +11,32 @@ export class AppService {
     username: process.env.CLICKHOUSE_USER || 'default',
     password: process.env.CLICKHOUSE_PASSWORD || 'default',
   });
+
+  constructor(private readonly s3Service: S3Service) {}
+
+  private getReportKey(userId: number): string {
+    return `user_${userId}.csv`;
+  }
+
+  private getCdnUrl(userId: number): string {
+    const base = process.env.CDN_BASE_URL || 'http://localhost:8082/reports';
+    return `${base}/${this.getReportKey(userId)}`;
+  }
+
+  async getReportDownloadUrl(userId: number): Promise<string> {
+    const key = this.getReportKey(userId);
+    const exists = await this.s3Service.fileExists(key);
+    if (exists) {
+      console.log(`Report for user ${userId} found in S3, returning CDN URL`);
+      return this.getCdnUrl(userId);
+    }
+
+    console.log(`Generating report for user ${userId} from ClickHouse`);
+    const reports = await this.getReports(userId);
+    const csv = await this.generateReportCsv(reports);
+    await this.s3Service.uploadCsv(key, csv);
+    return this.getCdnUrl(userId);
+  }
 
   async getReports(userId: number) {
     console.log('getReports', userId);
@@ -43,10 +71,8 @@ export class AppService {
     }
   }
 
-  async generateReportCsv(userId: number): Promise<string> {
-    console.log('generateReportCsv', userId);
-    const reports = await this.getReports(userId);
-
+  async generateReportCsv(reports: any[]): Promise<string> {
+    console.log('generateReportCsv');
     const headers = [
       'Дата',
       'Email',
