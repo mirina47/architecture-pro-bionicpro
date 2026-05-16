@@ -1,10 +1,9 @@
 import { createClient } from '@clickhouse/client';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 
 @Injectable()
 export class AppService {
-  private readonly logger = new Logger(AppService.name);
   private readonly clickhouse = createClient({
     host: process.env.CLICKHOUSE_HOST || 'http://clickhouse:8123',
     username: process.env.CLICKHOUSE_USER || 'default',
@@ -36,12 +35,43 @@ export class AppService {
         query_params: { userId },
       });
       const rows = await resultSet.json();
-      console.log(rows);
+      console.log('rows', rows);
       return rows;
     } catch (err) {
-      this.logger.error(`ClickHouse error: ${err.message}`);
+      console.error(`ClickHouse error: ${err.message}`);
       throw new Error('Failed to fetch reports');
     }
+  }
+
+  async generateReportCsv(userId: number): Promise<string> {
+    console.log('generateReportCsv', userId);
+    const reports = await this.getReports(userId);
+
+    const headers = [
+      'Дата',
+      'Email',
+      'Имя',
+      'Действий',
+      'Ср. отклик (ms)',
+      'Макс. отклик (ms)',
+      'Ср. батарея (%)',
+      'Аномалии',
+    ];
+
+    const rows = reports.map((r: any) => [
+      r.report_date,
+      r.email,
+      r.name,
+      r.total_actions,
+      r.avg_response_ms,
+      r.max_response_ms,
+      r.battery_avg_level,
+      r.anomaly_count,
+    ]);
+
+    const csv = [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
+
+    return '\uFEFF' + csv;
   }
 
   async getUserIdFromSession(sessionId: string): Promise<number> {

@@ -53,27 +53,37 @@ const ReportPage: React.FC = () => {
   };
 
   // report download
-  const [reports, setReports] = useState<any[]>([]);
-
   const downloadReport = async () => {
     try {
       setLoading(true);
       setError(null);
+
       const response = await fetch(
         `${process.env.REACT_APP_REPORTS_URL}/reports`,
         {
           credentials: "include",
         },
       );
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      const data = await response.json();
-      // предполагаем, что ответ приходит в виде { reports: [...] }
-      setReports(data || []);
+
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "report.csv";
+
+      document.body.appendChild(a);
+      a.click();
+
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
-      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -117,49 +127,6 @@ const ReportPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      {reports.length > 0 && (
-        <div className="mt-6 overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2">Дата</th>
-                <th className="border px-4 py-2">Email</th>
-                <th className="border px-4 py-2">Имя</th>
-                <th className="border px-4 py-2">Действий</th>
-                <th className="border px-4 py-2">Ср. отклик (ms)</th>
-                <th className="border px-4 py-2">Макс. отклик (ms)</th>
-                <th className="border px-4 py-2">Ср. батарея (%)</th>
-                <th className="border px-4 py-2">Аномалии</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map((rep, idx) => (
-                <tr key={idx}>
-                  <td className="border px-4 py-2">{rep.report_date}</td>
-                  <td className="border px-4 py-2">{rep.email}</td>
-                  <td className="border px-4 py-2">{rep.name}</td>
-                  <td className="border px-4 py-2 text-center">
-                    {rep.total_actions}
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    {rep.avg_response_ms}
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    {rep.max_response_ms}
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    {rep.battery_avg_level}
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    {rep.anomaly_count}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 };
