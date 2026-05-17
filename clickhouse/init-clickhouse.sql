@@ -25,3 +25,40 @@ CREATE TABLE IF NOT EXISTS reports_mart (
     etl_updated_at DateTime
 ) ENGINE = ReplacingMergeTree(etl_updated_at)
 ORDER BY (user_id, report_date);
+
+-- Создание целевой таблицы
+CREATE TABLE IF NOT EXISTS users_ch
+(
+    id Int32,
+    keycloakUserId String,
+    email String,
+    name String,
+    _sign Int8,
+    _version Int64
+)
+ENGINE = ReplacingMergeTree(_version)
+ORDER BY id;
+
+-- Таблица Kafka
+CREATE TABLE IF NOT EXISTS users_kafka
+(
+    payload String
+)
+ENGINE = Kafka
+SETTINGS kafka_broker_list = 'kafka:9092',
+         kafka_topic_list = 'dbz.public.users',
+         kafka_group_name = 'clickhouse_consumer',
+         kafka_format = 'JSONAsString',
+         kafka_num_consumers = 1;
+
+-- Материализованное представление (без POPULATE, историческая загрузка будет отдельным скриптом)
+CREATE MATERIALIZED VIEW IF NOT EXISTS users_mv TO users_ch
+AS SELECT
+    JSONExtractInt(payload, 'after', 'id') AS id,
+    JSONExtractString(payload, 'after', 'keycloakUserId') AS keycloakUserId,
+    JSONExtractString(payload, 'after', 'email') AS email,
+    JSONExtractString(payload, 'after', 'name') AS name,
+    multiIf(JSONExtractString(payload, 'op') = 'd', -1, 1) AS _sign,
+    JSONExtractInt(payload, 'ts_ms') AS _version
+FROM users_kafka
+WHERE JSONExtractString(payload, 'after', 'id') IS NOT NULL;
