@@ -48,6 +48,9 @@ services:
       POSTGRES_PASSWORD: app_password
     volumes:
       - ./postgres-app-data:/var/lib/postgresql/data
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgres/crm_init.sql:/docker-entrypoint-initdb.d/crm_init.sql
+    command: -c 'config_file=/etc/postgresql/postgresql.conf'
     ports:
       - "5434:5432"
     networks:
@@ -269,6 +272,48 @@ services:
       - ./nginx-cache:/var/cache/nginx
     depends_on:
       - minio
+    networks:
+      - app-network
+
+
+
+  # CDC Stack
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - app-network
+
+  debezium:
+    image: debezium/connect:2.5
+    depends_on:
+      - kafka
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: debezium_connect_configs
+      OFFSET_STORAGE_TOPIC: debezium_connect_offsets
+      STATUS_STORAGE_TOPIC: debezium_connect_statuses
+    ports:
+      - "8083:8083"
     networks:
       - app-network
 
