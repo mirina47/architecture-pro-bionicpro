@@ -1,2 +1,8 @@
 /postgres-keycloak-data
 2024__yandex-architecture-sso.code-workspace
+/postgres-app-data
+/airflow/postgres-airflow-data
+/airflow/dags/__pycache__
+/clickhouse/data
+/nginx-cache
+/minio-data
